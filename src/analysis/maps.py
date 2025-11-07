@@ -24,7 +24,7 @@ def create_price_map(df: pd.DataFrame, geojson_data) -> None:
                            locations='municipality',
                            color='m2_price',
                            featureidkey="properties.statnaam", 
-                           color_continuous_scale='cividis_r',  
+                           color_continuous_scale='inferno_r',  
                            mapbox_style="carto-positron",  
                            zoom=6.5, center = {"lat": 52.370216, "lon": 4.895168},
                            opacity=0.8,

@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Train Stations & House Prices | Levente Szabó</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+  <style>
+    html {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      padding: 40px 20px 80px;
+      min-height: 100vh;
+      background-color: #fcfcfc;
+      color: #1e1e1e;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 16px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1000px;
+      flex: 1 0 auto;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      margin-bottom: 2em;
+      flex-wrap: wrap;
+    }
+
+    pre.logo {
+      margin: 0;
+      line-height: 1.1;
+      font-size: 14px;
+      color: #1e1e1e;
+      white-space: pre;
+    }
+
+    .intro {
+      margin-left: 20px;
+      font-weight: bold;
+      font-size: 18px;
+      color: #1e1e1e;
+    }
+
+    /* Menu */
+    .indicator {
+      text-align: left;
+      margin-bottom: 1em;
+    }
+
+    .indicator span {
+      display: block;
+      margin: 2px 0;
+      padding-left: 2ch;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .indicator span:hover {
+      font-weight: bold;
+    }
+
+    .indicator .active-arrow::before {
+      content: "> ";
+      color: #1e1e1e;
+      font-weight: bold;
+      position: absolute;
+      margin-left: -2ch;
+    }
+
+    .indicator .active-arrow {
+      font-weight: bold;
+    }
+
+    /* Sections */
+    section {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      margin-top: 20px;
+    }
+
+    section.active {
+      display: block;
+      opacity: 1;
+    }
+
+    h2 {
+      margin: 0 0 10px 0;
+      font-size: 20px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 5px;
+    }
+
+    h3 {
+      margin: 20px 0 10px 0;
+      font-size: 16px;
+    }
+
+    p {
+      line-height: 1.6;
+      margin: 10px 0;
+    }
+
+    ul {
+      list-style-type: none;
+      padding-left: 20px;
+      margin: 0;
+    }
+
+    li::before {
+      content: "- ";
+    }
+
+    a {
+      color: #1e1e1e;
+      text-decoration: underline;
+    }
+
+    a:hover {
+      color: #000;
+    }
+
+    /* Visualization containers */
+    .viz-container {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #f8f8f8;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+    }
+
+    .map-container {
+      width: 100%;
+      height: 600px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .map-container iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .map-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+
+    .map-btn {
+      padding: 8px 12px;
+      background-color: #fff;
+      border: 1px solid #1e1e1e;
+      cursor: pointer;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+    }
+
+    .map-btn:hover {
+      font-weight: bold;
+    }
+
+    .map-btn.active {
+      background-color: #1e1e1e;
+      color: #fcfcfc;
+      font-weight: bold;
+    }
+
+    /* Key findings box */
+    .findings-box {
+      background-color: #f8f8f8;
+      color: #1e1e1e;
+      padding: 20px;
+      margin: 20px 0;
+      font-family: "Courier New", Courier, monospace;
+      border: 2px solid #1e1e1e;
+      border-radius: 4px;
+    }
+
+    .findings-box pre {
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    /* Loading animation */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      opacity: 0.6;
+    }
+
+    /* Footer */
+    .bottom-bar {
+      width: 100%;
+      max-width: 1000px;
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 0;
+      background-color: #fcfcfc;
+      box-sizing: border-box;
+      padding-top: 8px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .guide {
+      text-align: center;
+      color: #888;
+      font-size: 14px;
+      margin: 0;
+      padding-bottom: 8px;
+    }
+
+    .guide.map-mode {
+      color: #888;
+    }
+
+    @media (max-width: 800px) {
+      body {
+        padding: 20px 15px 80px;
+        font-size: 14px;
+      }
+
+      .app {
+        max-width: 100%;
+      }
+
+      .intro {
+        font-size: 16px;
+      }
+
+      .map-container {
+        height: 400px;
+      }
+
+      .guide {
+        font-size: 12px;
+      }
+    }
+
+    /* Slider styling */
+    input[type="range"] {
+      width: 100%;
+      margin: 10px 0;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="header">
+      <pre class="logo">
+ _,-._
+/ \_/ \
+>-(_)-<    
+\_/ \_/
+  `-' 
+      </pre>
+      <div class="intro">Train Stations & House Prices in The Netherlands</div>
+    </header>
+
+    <!-- MAIN MENU -->
+    <div class="indicator" id="menu">
+      <span class="active-arrow" data-index="0">Research Overview</span>
+      <span data-index="1">Maps Explorer</span>
+      <span data-index="2">Phase 1: Station Presence</span>
+      <span data-index="3">Phase 2: Train Traffic</span>
+      <span data-index="4">Key Findings</span>
+      <span data-index="5">About</span>
+    </div>
+
+    <!-- SECTIONS -->
+    <section class="active" id="overview">
+      <h2>Research Overview</h2>
+      <p>
+        <strong>Research Question:</strong> Does the presence of a train station and the volume of train traffic
+        affect house prices in Dutch municipalities?
+      </p>
+      <p>
+        This study analyzes all 343 municipalities in The Netherlands using 2023 data. Unlike previous research
+        focusing on individual properties near stations, this takes a bird's-eye view of entire municipal housing markets.
+      </p>
+      <p>
+        <strong>Main Finding:</strong> Station presence alone doesn't significantly impact municipal house prices.
+        However, train frequency tells a different story—and it depends dramatically on whether you're in a
+        rural or urban area.
+      </p>
+    </section>
+
+    <section id="maps">
+      <h2>Maps Explorer</h2>
+      <p>Explore the geographic distribution of key variables across Dutch municipalities.</p>
+
+      <div class="map-selector">
+        <button class="map-btn active" data-map="price">House Prices</button>
+        <button class="map-btn" data-map="income">Income</button>
+        <button class="map-btn" data-map="traffic">Train Traffic</button>
+        <button class="map-btn" data-map="pop_density">Population Density</button>
+        <button class="map-btn" data-map="distances">Distance to Urban Centers</button>
+      </div>
+
+      <div class="map-container">
+        <iframe id="map-frame" src="output/maps/price_map.html"></iframe>
+      </div>
+    </section>
+
+    <section id="phase1">
+      <h2>Phase 1: Station Presence Analysis</h2>
+      <p>
+        Does having a train station in your municipality affect average house prices?
+        <strong>Result: No significant effect.</strong>
+      </p>
+
+      <h3>Price Distribution by Station Presence</h3>
+      <div class="viz-container">
+        <div id="boxplot-station"></div>
+      </div>
+
+      <h3>What Actually Matters? Regression Coefficients</h3>
+      <div class="viz-container">
+        <div id="coef-plot-phase1"></div>
+      </div>
+
+      <p style="margin-top: 20px; font-size: 14px; opacity: 0.8;">
+        The strongest predictors are average income (positive) and homes per capita (negative).
+        Station presence? Statistically insignificant.
+      </p>
+    </section>
+
+    <section id="phase2">
+      <h2>Phase 2: Train Traffic Analysis</h2>
+      <p>
+        In municipalities <em>with</em> train stations, how does daily traffic volume affect prices?
+        <strong>Result: It depends on urbanization.</strong>
+      </p>
+
+      <h3>Traffic vs. Price (Color-coded by Multi-family Housing %)</h3>
+      <div class="viz-container">
+        <div id="scatter-traffic"></div>
+      </div>
+
+      <h3>The Interaction Effect (3D View)</h3>
+      <p>Rotate to explore how traffic and multi-family housing interact to affect prices.</p>
+      <div class="viz-container">
+        <div id="surface-plot"></div>
+      </div>
+
+      <h3>Coefficient Comparison: Before & After Outlier Removal</h3>
+      <div class="viz-container">
+        <div id="coef-comparison"></div>
+      </div>
+
+      <p style="margin-top: 20px; font-size: 14px; opacity: 0.8;">
+        In rural areas (low multi-family housing), more traffic → lower prices (noise, pollution).
+        In urban areas (high multi-family housing), more traffic → higher prices (accessibility wins).
+      </p>
+    </section>
+
+    <section id="findings">
+      <h2>Key Findings</h2>
+
+      <div class="findings-box">
+        <pre>$ >summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1: STATION PRESENCE (N=343)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ Station presence effect: -0.87% (p > 0.05) [NOT SIGNIFICANT]
+✓ Strongest positive predictor: Average income (β = 1.26***)
+✓ Strongest negative predictor: Homes per capita (β = -1.00***)
+✓ Model R²: 0.68 (0.75 after outlier removal)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 2: TRAFFIC EFFECTS (N=194, municipalities with stations)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ Base traffic effect: -0.26% per 1% traffic increase***
+✓ Interaction (traffic × multi-family): +0.08% (p < 0.001)
+✓ Rural impact: NEGATIVE (externalities dominate)
+✓ Urban impact: POSITIVE (accessibility dominates)
+✓ Model R²: 0.79 (0.82 after outlier removal)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*** p < 0.001  |  ** p < 0.01  |  * p < 0.05
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</pre>
+      </div>
+
+      <p>
+        <strong>Policy Implication:</strong> When planning rail infrastructure improvements,
+        the impact on local real estate markets depends critically on the area's character.
+        Increasing train frequency may boost urban property values while potentially
+        depressing rural ones.
+      </p>
+    </section>
+
+    <section id="about">
+      <h2>About This Research</h2>
+      <p>
+        <strong>Author:</strong> Levente Szabó<br>
+        <strong>Institution:</strong> University of Amsterdam, Economics and Business<br>
+        <strong>Year:</strong> 2024<br>
+        <strong>Supervisor:</strong> Lisa Marie Timm
+      </p>
+
+      <h3>Methodology</h3>
+      <p>
+        This study uses OLS regression on cross-sectional data (2023) across all 343 Dutch municipalities.
+        The model adapts the hedonic pricing framework to the municipal level, controlling for income,
+        housing market structure, and geographic factors.
+      </p>
+
+      <h3>Data Sources</h3>
+      <ul>
+        <li>CBS Statline (housing prices, demographics, economic indicators)</li>
+        <li>Rijden De Treinen (train station locations and traffic data)</li>
+        <li>PDOK (municipality boundaries)</li>
+      </ul>
+
+      <h3>Download</h3>
+      <ul>
+        <li><a href="./thesis.pdf" target="_blank">Full Thesis PDF</a></li>
+        <li><a href="https://github.com/leviszaboo/thesis" target="_blank">GitHub Repository</a></li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- GUIDE SECTION -->
+  <div class="bottom-bar">
+    <div class="guide" id="guide">
+      Use ↑/↓ to navigate • Enter to select • Click to jump
+    </div>
+  </div>
+
+  <script>
+    // ===== NAVIGATION LOGIC =====
+    const sections = document.querySelectorAll("section");
+    const menuItems = document.querySelectorAll("#menu span");
+    let currentIndex = 0;
+    let mode = "menu"; // "menu" or "maps"
+    let mapIndex = 0;
+
+    function updateMenuSelection() {
+      menuItems.forEach((item, i) =>
+        item.classList.toggle("active-arrow", i === currentIndex)
+      );
+      sections.forEach((sec, i) => sec.classList.toggle("active", i === currentIndex));
+
+      // Trigger visualizations when entering certain sections
+      if (currentIndex === 2) initPhase1Viz();
+      if (currentIndex === 3) initPhase2Viz();
+    }
+
+    // Keyboard navigation
+    document.addEventListener("keydown", (e) => {
+      if (mode === "menu") {
+        if (e.key === "ArrowDown") {
+          currentIndex = (currentIndex + 1) % menuItems.length;
+          updateMenuSelection();
+        } else if (e.key === "ArrowUp") {
+          currentIndex = (currentIndex - 1 + menuItems.length) % menuItems.length;
+          updateMenuSelection();
+        } else if (e.key === "Enter") {
+          // If on Maps Explorer section, enter map navigation mode
+          if (currentIndex === 1) {
+            mode = "maps";
+            mapIndex = 0;
+            updateMapSelection();
+            document.getElementById('guide').textContent = "Use ←/→ to switch maps • Esc to go back";
+            document.getElementById('guide').classList.add('map-mode');
+          }
+        }
+      } else if (mode === "maps") {
+        if (e.key === "ArrowLeft") {
+          mapIndex = (mapIndex - 1 + mapButtons.length) % mapButtons.length;
+          updateMapSelection();
+        } else if (e.key === "ArrowRight") {
+          mapIndex = (mapIndex + 1) % mapButtons.length;
+          updateMapSelection();
+        } else if (e.key === "Escape") {
+          mode = "menu";
+          document.getElementById('guide').textContent = "Use ↑/↓ to navigate • Enter to select • Click to jump";
+          document.getElementById('guide').classList.remove('map-mode');
+          updateMenuSelection();
+        }
+      }
+    });
+
+    // Click navigation
+    menuItems.forEach((item, index) => {
+      item.addEventListener("click", () => {
+        currentIndex = index;
+        updateMenuSelection();
+      });
+    });
+
+    // ===== MAP SWITCHING =====
+    const mapButtons = document.querySelectorAll('.map-btn');
+    const mapFrame = document.getElementById('map-frame');
+
+    async function loadMap(mapType) {
+      const htmlPath = `output/maps/${mapType}_map.html`;
+      const gzPath = `output/maps/${mapType}_map.html.gz`;
+
+      try {
+        // Try loading .html first
+        const response = await fetch(htmlPath);
+        if (response.ok) {
+          mapFrame.src = htmlPath;
+          return;
+        }
+      } catch (e) {
+        console.log(`${htmlPath} not found, trying .gz version`);
+      }
+
+      try {
+        // Try loading .html.gz and decompress
+        const response = await fetch(gzPath);
+        if (response.ok) {
+          const compressed = await response.arrayBuffer();
+          const decompressed = pako.inflate(new Uint8Array(compressed), { to: 'string' });
+          const blob = new Blob([decompressed], { type: 'text/html' });
+          const blobUrl = URL.createObjectURL(blob);
+          mapFrame.src = blobUrl;
+          return;
+        }
+      } catch (e) {
+        console.error(`Failed to load map: ${mapType}`, e);
+        mapFrame.srcdoc = '<div style="padding: 20px; font-family: monospace;">Map not found</div>';
+      }
+    }
+
+    function updateMapSelection() {
+      mapButtons.forEach((b, i) => b.classList.toggle('active', i === mapIndex));
+      const mapType = mapButtons[mapIndex].dataset.map;
+      loadMap(mapType);
+    }
+
+    mapButtons.forEach((btn, index) => {
+      btn.addEventListener('click', () => {
+        mapIndex = index;
+        updateMapSelection();
+      });
+    });
+
+    // Load initial map
+    loadMap('price');
+
+    // ===== DATA LOADING =====
+    let phase1Data = [];
+    let phase2Data = [];
+
+    async function loadData() {
+      try {
+        const [p1Response, p2Response] = await Promise.all([
+          fetch('output/data/phase1.csv'),
+          fetch('output/data/phase2.csv')
+        ]);
+
+        const p1Text = await p1Response.text();
+        const p2Text = await p2Response.text();
+
+        phase1Data = parseCSV(p1Text);
+        phase2Data = parseCSV(p2Text);
+
+        console.log('Data loaded successfully');
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    }
+
+    function parseCSV(text) {
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',');
+
+      return lines.slice(1).map(line => {
+        const values = line.split(',');
+        const obj = {};
+        headers.forEach((header, i) => {
+          obj[header] = values[i];
+        });
+        return obj;
+      });
+    }
+
+    // ===== PHASE 1 VISUALIZATIONS =====
+    let phase1Initialized = false;
+
+    function initPhase1Viz() {
+      if (phase1Initialized) return;
+      phase1Initialized = true;
+
+      // Boxplot: Station vs No Station
+      const withStation = phase1Data.filter(d => d.has_station === '1').map(d => parseFloat(d.m2_price));
+      const withoutStation = phase1Data.filter(d => d.has_station === '0').map(d => parseFloat(d.m2_price));
+
+      const boxTrace1 = {
+        y: withoutStation,
+        name: 'No Station',
+        type: 'box',
+        marker: { color: '#f39c12' }
+      };
+
+      const boxTrace2 = {
+        y: withStation,
+        name: 'Has Station',
+        type: 'box',
+        marker: { color: '#3498db' }
+      };
+
+      Plotly.newPlot('boxplot-station', [boxTrace1, boxTrace2], {
+        title: 'House Price Distribution by Station Presence',
+        yaxis: { title: 'Price per m² (€)' },
+        showlegend: true,
+        font: { family: 'Courier New' }
+      }, { responsive: true });
+
+      // Coefficient plot (Phase 1 Interaction Model - Dropped Outliers)
+      const coefficients = [
+        { name: 'Station Presence', value: -0.0311, significant: false },
+        { name: 'Log(Income)', value: 1.4417, significant: true },
+        { name: 'Log(Multi-family %)', value: 0.3474, significant: true },
+        { name: 'Homes per Capita', value: -1.5416, significant: true },
+        { name: 'Log(Distance)', value: 0.0124, significant: false }
+      ];
+
+      const coefTrace = {
+        x: coefficients.map(c => c.value),
+        y: coefficients.map(c => c.name),
+        type: 'bar',
+        orientation: 'h',
+        marker: {
+          color: coefficients.map(c => {
+            if (!c.significant) return '#e0e0e0';
+            return c.value > 0 ? '#3498db' : '#f39c12';
+          })
+        }
+      };
+
+      Plotly.newPlot('coef-plot-phase1', [coefTrace], {
+        title: 'Regression Coefficients (Interaction Model, Outliers Dropped)',
+        xaxis: { title: 'Coefficient Value', zeroline: true },
+        yaxis: { automargin: true },
+        font: { family: 'Courier New' }
+      }, { responsive: true });
+    }
+
+    // ===== PHASE 2 VISUALIZATIONS =====
+    let phase2Initialized = false;
+
+    function initPhase2Viz() {
+      if (phase2Initialized) return;
+      phase2Initialized = true;
+
+      // Scatter: Traffic vs Price (color by multi-family %)
+      const scatterTrace = {
+        x: phase2Data.map(d => parseFloat(d.log_traffic)),
+        y: phase2Data.map(d => parseFloat(d.log_m2_price)),
+        mode: 'markers',
+        type: 'scatter',
+        text: phase2Data.map(d => d.municipality),
+        marker: {
+          size: 8,
+          color: phase2Data.map(d => parseFloat(d.multy_family)),
+          colorscale: 'Viridis',
+          showscale: true,
+          colorbar: { title: 'Multi-family<br>Housing %' }
+        },
+        hovertemplate: '<b>%{text}</b><br>Log(Traffic): %{x:.2f}<br>Log(Price): %{y:.2f}<extra></extra>'
+      };
+
+      Plotly.newPlot('scatter-traffic', [scatterTrace], {
+        title: 'Traffic vs House Prices (Color = Urbanization Proxy)',
+        xaxis: { title: 'Log(Daily Train Traffic)' },
+        yaxis: { title: 'Log(Price per m²)' },
+        font: { family: 'Courier New' },
+        hovermode: 'closest'
+      }, { responsive: true });
+
+      // 3D Surface Plot
+      create3DSurface();
+
+      // Coefficient comparison
+      const models = ['Simple', 'With Interaction', 'Dropped Outliers'];
+      const trafficCoefs = [0.0259, -0.1698, -0.2587];
+      const interactionCoefs = [null, 0.0671, 0.0831];
+
+      const trace1 = {
+        x: models,
+        y: trafficCoefs,
+        name: 'Traffic Effect',
+        type: 'bar',
+        marker: { color: '#3498db' }
+      };
+
+      const trace2 = {
+        x: models.slice(1),
+        y: interactionCoefs.slice(1),
+        name: 'Traffic × Multi-family',
+        type: 'bar',
+        marker: { color: '#f39c12' }
+      };
+
+      Plotly.newPlot('coef-comparison', [trace1, trace2], {
+        title: 'Model Comparison: Traffic Coefficients',
+        yaxis: { title: 'Coefficient Value', zeroline: true },
+        barmode: 'group',
+        font: { family: 'Courier New' }
+      }, { responsive: true });
+    }
+
+    function create3DSurface() {
+      // Create grid for 3D surface
+      const trafficRange = [];
+      const multyFamilyRange = [];
+
+      for (let i = 4; i <= 8.3; i += 0.2) {
+        trafficRange.push(i);
+      }
+
+      for (let i = 0; i <= 90; i += 5) {
+        multyFamilyRange.push(i);
+      }
+
+      // Coefficients from interaction model (dropped outliers)
+      const beta0 = 4.0180;
+      const beta_traffic = -0.2587;
+      const beta_mf = -0.0702;
+      const beta_interaction = 0.0831;
+      const beta_income = 1.4793; // avg 3.7
+      const beta_homes = -2.4552; // avg 0.45
+      const beta_distance = -0.0126; // avg 3.3
+
+      const z = multyFamilyRange.map(mf => {
+        return trafficRange.map(traffic => {
+          const log_mf = Math.log(mf + 0.1); // avoid log(0)
+          return beta0 +
+                 beta_traffic * traffic +
+                 beta_mf * log_mf +
+                 beta_interaction * traffic * log_mf +
+                 beta_income * 3.7 +
+                 beta_homes * 0.45 +
+                 beta_distance * 3.3;
+        });
+      });
+
+      const surfaceTrace = {
+        x: trafficRange,
+        y: multyFamilyRange,
+        z: z,
+        type: 'surface',
+        colorscale: 'Viridis',
+        showscale: true,
+        colorbar: { title: 'Log(Price)' }
+      };
+
+      Plotly.newPlot('surface-plot', [surfaceTrace], {
+        title: 'Price = f(Traffic, Multi-family Housing)',
+        scene: {
+          xaxis: { title: 'Log(Traffic)' },
+          yaxis: { title: 'Multi-family %' },
+          zaxis: { title: 'Log(Price per m²)' },
+          camera: {
+            eye: { x: 1.5, y: 1.5, z: 1.3 }
+          }
+        },
+        font: { family: 'Courier New' }
+      }, { responsive: true });
+    }
+
+    // ===== INITIALIZATION =====
+    updateMenuSelection();
+    loadData();
+  </script>
+</body>
+</html>
